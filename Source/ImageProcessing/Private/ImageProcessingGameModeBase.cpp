@@ -9,14 +9,6 @@
 #include "opencv2/ml.hpp"
 #include "PostOpenCVHeaders.h"
 
-static int8 PrewittX[] = {1,1,1,0,0,0,-1,-1,-1};
-static int8 PrewittY[] = {-1,0,1,-1,0,1,-1,0,1};
-static const cv::Mat X_PREWITT_KERNEL(cv::Size(3,3),CV_8S,PrewittX);
-static const cv::Mat Y_PREWITT_KERNEL(3,3,CV_8S, PrewittY);
-static int8 RobertsX[] = {-1,0,0,1};
-static int8 RobertsY[] = {0,-1,1,0};
-static const cv::Mat X_ROBERTS_KERNEL(2,2,CV_8S, RobertsX);
-static const cv::Mat Y_ROBERTS_KERNEL(2,2,CV_8S, RobertsY);
 
 const FString AImageProcessingGameModeBase::IMAGES_DIR_NAME = TEXT("Images");
 
@@ -159,7 +151,7 @@ UTexture2D* AImageProcessingGameModeBase::ApplyHighBoost(int32 KernelSize, int32
 	return ConvertToTexture2D(NewImage); 
 }
 
-UTexture2D* AImageProcessingGameModeBase::ApplyRoberts(FilterDirection Direction)
+UTexture2D* AImageProcessingGameModeBase::ApplyRoberts(FilterDirection Direction, bool bUseZeroCross)
 {
 	if (ImagesHistory.IsEmpty())
 		return nullptr;
@@ -167,8 +159,8 @@ UTexture2D* AImageProcessingGameModeBase::ApplyRoberts(FilterDirection Direction
 	cv::Mat SourceMat = ConvertToGrayScale(CreateMatFromImage(ImagesHistory.Top()));
 	cv::Mat DestMat, VerticalMask, HorizontalMask;
 
-	cv::filter2D(SourceMat, HorizontalMask, -1, X_ROBERTS_KERNEL);
-	cv::filter2D(SourceMat, VerticalMask, -1, Y_ROBERTS_KERNEL);
+	cv::filter2D(SourceMat, HorizontalMask, CV_16S, X_ROBERTS_KERNEL);
+	cv::filter2D(SourceMat, VerticalMask, CV_16S, Y_ROBERTS_KERNEL);
 
 	switch (Direction) {
 	case FilterDirection::Horizontal:
@@ -181,14 +173,17 @@ UTexture2D* AImageProcessingGameModeBase::ApplyRoberts(FilterDirection Direction
 		DestMat = VerticalMask + HorizontalMask;
 		break;
 	}
-	cv::convertScaleAbs(DestMat, DestMat);
+	if (bUseZeroCross)
+		DestMat = ApplyZeroCross(DestMat);
+	else
+		cv::convertScaleAbs(DestMat, DestMat);
 	
 	FImage NewImage = createImageFromMat(DestMat);
 	ImagesHistory.Add(NewImage);
 	return ConvertToTexture2D(NewImage); 
 }
 
-UTexture2D* AImageProcessingGameModeBase::ApplyPrewitt(FilterDirection Direction)
+UTexture2D* AImageProcessingGameModeBase::ApplyPrewitt(FilterDirection Direction, bool bUseZeroCross)
 {
 	if (ImagesHistory.IsEmpty())
 		return nullptr;
@@ -196,8 +191,8 @@ UTexture2D* AImageProcessingGameModeBase::ApplyPrewitt(FilterDirection Direction
 	cv::Mat SourceMat = ConvertToGrayScale(CreateMatFromImage(ImagesHistory.Top()));
 	cv::Mat DestMat, VerticalMask, HorizontalMask;
 	
-	cv::filter2D(SourceMat, HorizontalMask, -1, X_PREWITT_KERNEL);
-	cv::filter2D(SourceMat, VerticalMask, -1, Y_PREWITT_KERNEL);
+	cv::filter2D(SourceMat, HorizontalMask, CV_16S, X_PREWITT_KERNEL);
+	cv::filter2D(SourceMat, VerticalMask, CV_16S, Y_PREWITT_KERNEL);
 
 	switch (Direction) {
 	case FilterDirection::Horizontal:
@@ -210,14 +205,17 @@ UTexture2D* AImageProcessingGameModeBase::ApplyPrewitt(FilterDirection Direction
 		DestMat = VerticalMask + HorizontalMask;
 		break;
 	}
-	cv::convertScaleAbs(DestMat, DestMat);
+	if (bUseZeroCross)
+		DestMat = ApplyZeroCross(DestMat);
+	else
+		cv::convertScaleAbs(DestMat, DestMat);
 	
 	FImage NewImage = createImageFromMat(DestMat);
 	ImagesHistory.Add(NewImage);
 	return ConvertToTexture2D(NewImage); 
 }
 
-UTexture2D* AImageProcessingGameModeBase::ApplySobel(FilterDirection Direction, int32 Size)
+UTexture2D* AImageProcessingGameModeBase::ApplySobel(FilterDirection Direction, int32 Size, bool bUseZeroCross)
 {
 	if (ImagesHistory.IsEmpty())
 		return nullptr;
@@ -226,8 +224,8 @@ UTexture2D* AImageProcessingGameModeBase::ApplySobel(FilterDirection Direction, 
 	cv::Mat DestMat;
 	cv::Mat HorizontalMat, VerticalMat;
 
-	cv::Sobel(SourceMat, HorizontalMat, CV_16U, 1, 0, Size);
-	cv::Sobel(SourceMat, VerticalMat, CV_16U, 1, 0, Size);
+	cv::Sobel(SourceMat, HorizontalMat, CV_16S, 1, 0, Size);
+	cv::Sobel(SourceMat, VerticalMat, CV_16S, 1, 0, Size);
 	
 	switch (Direction) {
 	case FilterDirection::Horizontal:
@@ -240,51 +238,14 @@ UTexture2D* AImageProcessingGameModeBase::ApplySobel(FilterDirection Direction, 
 		DestMat = VerticalMat + HorizontalMat;
 		break;
 	}
-	cv::convertScaleAbs(DestMat, DestMat);
+	if (bUseZeroCross)
+		DestMat = ApplyZeroCross(DestMat);
+	else
+		cv::convertScaleAbs(DestMat, DestMat);
 	
 	FImage NewImage = createImageFromMat(DestMat);
 	ImagesHistory.Add(NewImage);
 	return ConvertToTexture2D(NewImage); 
-}
-
-UTexture2D* AImageProcessingGameModeBase::ApplyLaplacianOfGauss(int32 KernelSize)
-{
-	if (ImagesHistory.IsEmpty())
-		return nullptr;
-
-	cv::Mat SourceMat = CreateMatFromImage(ImagesHistory.Top());
-	cv::Mat DestMat;
-	cv::GaussianBlur(SourceMat, DestMat,{KernelSize,KernelSize},0);
-	cv::Laplacian(DestMat, DestMat,-1,KernelSize);
-
-
-	cv::Mat Final = ApplyZeroCross(DestMat);
-	
-	FImage NewImage = createImageFromMat(Final);
-	ImagesHistory.Add(NewImage);
-	return ConvertToTexture2D(NewImage); 
-}
-
-
-cv::Mat AImageProcessingGameModeBase::ApplyZeroCross(const cv::Mat& Image)
-{
-	cv::Mat DestMat(Image.size(), CV_8U, cv::Scalar(0));
-
-    for (int i = 0; i < Image.rows - 1; i++) {
-        for (int j = 0; j < Image.cols - 1; j++) {
-            if (Image.at<short>(i, j) > 0) {
-                if (Image.at<short>(i + 1, j) < 0 || Image.at<short>(i + 1, j + 1) < 0 || Image.at<short>(i, j + 1) < 0) {
-                    DestMat.at<uchar>(i, j) = 1;
-                }
-            } else if (Image.at<short>(i, j) < 0) {
-                if (Image.at<short>(i + 1, j) > 0 || Image.at<short>(i + 1, j + 1) > 0 || Image.at<short>(i, j + 1) > 0) {
-                    DestMat.at<uchar>(i, j) = 1;
-                }
-            }
-        }
-    }
-
-    return DestMat;
 }
 
 UTexture2D* AImageProcessingGameModeBase::ApplyCanny(int32 Min, int32 Max, int32 SobelAperture)
@@ -302,6 +263,81 @@ UTexture2D* AImageProcessingGameModeBase::ApplyCanny(int32 Min, int32 Max, int32
 	return ConvertToTexture2D(NewImage); 
 }
 
+UTexture2D* AImageProcessingGameModeBase::ApplyLaplacianOfGauss(int32 KernelSize)
+{
+	if (ImagesHistory.IsEmpty())
+		return nullptr;
+
+	cv::Mat SourceMat = ConvertToGrayScale(CreateMatFromImage(ImagesHistory.Top()));
+	cv::Mat Gaus, Laplacian;
+	cv::GaussianBlur(SourceMat, Gaus,{KernelSize,KernelSize},0);
+	cv::Laplacian(Gaus, Laplacian,CV_16S,KernelSize);
+
+	cv::Mat Final = ApplyZeroCross(Laplacian);
+	
+	FImage NewImage = createImageFromMat(Final);
+	ImagesHistory.Add(NewImage);
+	return ConvertToTexture2D(NewImage); 
+}
+
+cv::Mat AImageProcessingGameModeBase::ApplyZeroCross(const cv::Mat& Image)
+{
+	cv::Mat DestMat(Image.size(), CV_8U, cv::Scalar(0));
+
+    for (int i = 0; i < Image.rows - 1; i++) {
+        for (int j = 0; j < Image.cols - 1; j++) {
+            if (Image.at<short>(i, j) > 0) {
+                if (Image.at<short>(i + 1, j) < 0 || Image.at<short>(i + 1, j + 1) < 0 || Image.at<short>(i, j + 1) < 0) {
+                    DestMat.at<uint8>(i, j) = 255;
+                }
+            } else if (Image.at<short>(i, j) < 0) {
+                if (Image.at<short>(i + 1, j) > 0 || Image.at<short>(i + 1, j + 1) > 0 || Image.at<short>(i, j + 1) > 0) {
+                    DestMat.at<uint8>(i, j) = 255;
+                }
+            }
+        }
+    }
+
+    return DestMat;
+}
+
+UTexture2D* AImageProcessingGameModeBase::ApplyWatershed()
+{
+	
+	return nullptr;	
+}
+
+UTexture2D* AImageProcessingGameModeBase::ObjectCount(int32 Threshold)
+{
+	
+	cv::Mat res,src, src_gray;
+	cv::pyrMeanShiftFiltering(src, res, 20, 40);
+
+	cvtColor( res, src_gray, cv::COLOR_BGR2GRAY );
+
+	cv::Mat thre;
+	cv::threshold(src_gray, thre,140,255, cv::THRESH_BINARY);
+
+	std::vector<std::vector<cv::Point>> contours;
+	std::vector<cv::Vec4i> hierarchy;
+	findContours(thre,contours, hierarchy,cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+
+	//Mat drawing = Mat::zeros( thre.size(), CV_8UC3 );
+	cv::Mat drawing = src.clone();
+	int count = 0;
+	for( size_t i = 0; i< contours.size(); i++ )
+	{
+		double area = cv::contourArea(contours[i]);
+		if (area > 5000) {
+			count++;
+			cv::Scalar color = cv::Scalar( cv::RNG(12345).uniform(0, 256), cv::RNG(12345).uniform(0,256), cv::RNG(12345).uniform(0,256) );
+			drawContours( drawing, contours, (int)i, color, 2, cv::LINE_8, hierarchy, 0 );
+		}
+	}
+	std::cout << "Contagem: " << count << '\n';
+	return nullptr;
+}
+
 UTexture2D* AImageProcessingGameModeBase::AddSaltAndPepper(float NoiseProbability)
 {
 	if (ImagesHistory.IsEmpty())
@@ -317,7 +353,7 @@ UTexture2D* AImageProcessingGameModeBase::AddSaltAndPepper(float NoiseProbabilit
 		int64 RandomRow = FMath::RandRange(0, SourceMat.rows);
 		uint8 NoiseValue = FMath::RandBool() ? 255 : 0;
 		
-		FMemory::Memset(DestMat.ptr(RandomRow,RandomCol), NoiseValue, SourceMat.channels());
+		FMemory::Memset(DestMat.ptr(RandomRow,RandomCol), NoiseValue, DestMat.channels());
 	}
 	
 	FImage NewImage = createImageFromMat(DestMat);
