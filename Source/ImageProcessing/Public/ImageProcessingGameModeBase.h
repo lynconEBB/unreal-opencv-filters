@@ -40,6 +40,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* LoadImage(const FString& ImagePath);
+	UTexture2D* UndoAction();
 	
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* ApplyThreshold(double LimitValue, ThresholdType Type);

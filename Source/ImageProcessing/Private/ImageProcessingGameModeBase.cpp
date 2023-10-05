@@ -46,6 +46,16 @@ UTexture2D* AImageProcessingGameModeBase::LoadImage(const FString& ImagePath)
 	return Texture;
 }
 
+UTexture2D* AImageProcessingGameModeBase::UndoAction()
+{
+	if (ImagesHistory.Num() == 1)
+	{
+		return nullptr;
+	}
+
+	
+}
+
 UTexture2D* AImageProcessingGameModeBase::ApplyThreshold(double LimitValue, ThresholdType Type)
 {
 	if (ImagesHistory.IsEmpty())
