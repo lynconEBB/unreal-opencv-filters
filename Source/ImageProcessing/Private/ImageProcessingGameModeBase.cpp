@@ -303,39 +303,117 @@ cv::Mat AImageProcessingGameModeBase::ApplyZeroCross(const cv::Mat& Image)
 
 UTexture2D* AImageProcessingGameModeBase::ApplyWatershed()
 {
+	if (ImagesHistory.IsEmpty())
+		return nullptr;
+
+	cv::Mat Source = CreateMatFromImage(ImagesHistory.Top());
+	if (Source.channels() == 1)
+	{
+		cv::cvtColor(Source, Source, cv::COLOR_GRAY2BGR);
+	} else
+	{
+		cv::cvtColor(Source, Source, cv::COLOR_BGRA2BGR);
+	}
 	
-	return nullptr;	
+	cv::Mat Gray; 
+	cv::cvtColor(Source, Gray, cv::COLOR_BGR2GRAY);
+
+	// Aplly OTSU Threshold
+    cv::Mat Thresholded;
+    cv::threshold(Gray, Thresholded,0, 255,  cv::THRESH_BINARY | cv::THRESH_OTSU);
+    cv::bitwise_not(Thresholded, Thresholded);
+
+    cv::Mat kernel = cv::Mat::ones(3,3,CV_8U);
+    cv::Mat Opened;
+    cv::morphologyEx(Thresholded,Opened,cv::MORPH_OPEN,kernel, cv::Point(-1,-1), 3);
+
+    cv::Mat SureBG;
+    cv::dilate(Opened, SureBG, kernel,cv::Point(-1,-1), 3);
+
+    cv::Mat Distance, SureFG;
+    cv::distanceTransform(Opened,Distance, cv::DIST_L2, 5);
+    normalize(Distance, Distance, 0, 1.0, cv::NORM_MINMAX);
+    double min,max;
+    cv::minMaxLoc(Distance,&min, &max);
+    cv::threshold(Distance, SureFG, 0.1 * max,255,cv::THRESH_BINARY);
+    cv::convertScaleAbs(SureFG,SureFG);
+
+    cv::Mat Unknown;
+    cv::subtract(SureBG, SureFG,Unknown);
+
+    cv::Mat Markers(SureFG.size(), CV_32SC1);
+    cv::connectedComponents(SureFG, Markers );
+    Markers += 1;
+
+    for (int i = 0; i < Markers.rows; i++) {
+        for (int j = 0; j < Markers.cols; j++) {
+            if (Unknown.at<uchar>(i, j) == 255) {
+                Markers.at<int>(i, j) = 0;
+            }
+        }
+    }
+
+    cv::watershed(Source, Markers);
+    for (int i = 0; i < Markers.rows; i++) {
+        for (int j = 0; j < Markers.cols; j++) {
+            if (Markers.at<int>(i, j) == -1) {
+                Source.at<cv::Vec3b>(i, j) = cv::Vec3b(0, 0, 255);
+            }
+        }
+    }
+	cv::cvtColor(Source, Source, cv::COLOR_BGR2BGRA);
+	
+	FImage NewImage = createImageFromMat(Source);
+	ImagesHistory.Add(NewImage);
+	return ConvertToTexture2D(NewImage);	
 }
 
-UTexture2D* AImageProcessingGameModeBase::ObjectCount(int32 Threshold)
+UTexture2D* AImageProcessingGameModeBase::ObjectCount(int32 Threshold, int32 MinObjectArea, int32& OutCount)
 {
-	
-	cv::Mat res,src, src_gray;
-	cv::pyrMeanShiftFiltering(src, res, 20, 40);
+	if (ImagesHistory.IsEmpty())
+		return  nullptr;
 
-	cvtColor( res, src_gray, cv::COLOR_BGR2GRAY );
-
-	cv::Mat thre;
-	cv::threshold(src_gray, thre,140,255, cv::THRESH_BINARY);
-
-	std::vector<std::vector<cv::Point>> contours;
-	std::vector<cv::Vec4i> hierarchy;
-	findContours(thre,contours, hierarchy,cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
-
-	//Mat drawing = Mat::zeros( thre.size(), CV_8UC3 );
-	cv::Mat drawing = src.clone();
-	int count = 0;
-	for( size_t i = 0; i< contours.size(); i++ )
+	const FImageView& Image = ImagesHistory.Top();
+	cv::Mat Source = CreateMatFromImage(Image);
+	cv::Mat ConvSource;
+	if (Source.channels() == 1)
 	{
-		double area = cv::contourArea(contours[i]);
-		if (area > 5000) {
-			count++;
-			cv::Scalar color = cv::Scalar( cv::RNG(12345).uniform(0, 256), cv::RNG(12345).uniform(0,256), cv::RNG(12345).uniform(0,256) );
-			drawContours( drawing, contours, (int)i, color, 2, cv::LINE_8, hierarchy, 0 );
+		cv::cvtColor(Source, ConvSource, cv::COLOR_GRAY2BGR);		
+	} else
+	{
+		cv::cvtColor(Source, ConvSource, cv::COLOR_BGRA2BGR);
+	}
+	
+	cv::Mat Filtered;
+	cv::pyrMeanShiftFiltering(ConvSource, Filtered, 20, 40);
+	
+	cv::Mat GraySource;
+	cvtColor( Filtered ,GraySource, cv::COLOR_BGR2GRAY );
+
+	cv::Mat Thresholded;
+	cv::threshold(GraySource, Thresholded,Threshold,255, cv::THRESH_BINARY);
+
+	std::vector<std::vector<cv::Point>> Contours;
+	std::vector<cv::Vec4i> Hierarchy;
+	findContours(Thresholded,Contours, Hierarchy,cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+
+	cv::Mat Drawing;
+	cv::cvtColor(Thresholded, Drawing, cv::COLOR_GRAY2BGRA);
+	
+	OutCount = 0;
+	for( size_t i = 0; i< Contours.size(); i++ )
+	{
+		double Area = cv::contourArea(Contours[i]);
+		if (Area > MinObjectArea) {
+			OutCount++;
+			cv::Scalar Color = cv::Scalar( FMath::RandRange(0,255), FMath::RandRange(0,255), FMath::RandRange(0,255) ,255);
+			drawContours( Drawing, Contours, (int)i, Color, 5, cv::LINE_8, Hierarchy, 0 );
 		}
 	}
-	std::cout << "Contagem: " << count << '\n';
-	return nullptr;
+	
+	FImage NewImage = createImageFromMat(Drawing);
+	ImagesHistory.Add(NewImage);
+	return ConvertToTexture2D(NewImage);
 }
 
 UTexture2D* AImageProcessingGameModeBase::AddSaltAndPepper(float NoiseProbability)
@@ -358,9 +436,7 @@ UTexture2D* AImageProcessingGameModeBase::AddSaltAndPepper(float NoiseProbabilit
 	
 	FImage NewImage = createImageFromMat(DestMat);
 	ImagesHistory.Add(NewImage);
-	UTexture2D* Texture = ConvertToTexture2D(NewImage);
-
-	return Texture; 
+	return ConvertToTexture2D(NewImage);
 }
 
 UTexture2D* AImageProcessingGameModeBase::ConvertToTexture2D(const FImageView& Image)

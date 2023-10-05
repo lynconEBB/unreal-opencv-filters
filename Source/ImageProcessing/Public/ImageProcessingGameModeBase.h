@@ -73,7 +73,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* ApplyWatershed();
-	UTexture2D* ObjectCount(int32 Threshold);
+	UFUNCTION(BlueprintCallable)
+	UTexture2D* ObjectCount(int32 Threshold, int32 MinObjectArea, int32& OutCount);
 
 private:
 	UTexture2D* ConvertToTexture2D(const FImageView& Image);
