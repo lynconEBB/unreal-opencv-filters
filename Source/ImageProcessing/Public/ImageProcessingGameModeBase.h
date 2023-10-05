@@ -76,6 +76,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* ObjectCount(int32 Threshold, int32 MinObjectArea, int32& OutCount);
 
+	UFUNCTION(BlueprintCallable)
+	UTexture2D* GenerateHistogram();
+	UFUNCTION(BlueprintCallable)
+	UTexture2D* ApplyAdaptiveHistogramEqualization();
 private:
 	UTexture2D* ConvertToTexture2D(const FImageView& Image);
 	cv::Mat	CreateMatFromImage(const FImageView& Image);
