@@ -445,6 +445,10 @@ UTexture2D* AImageProcessingGameModeBase::ObjectCount(int32 Threshold, int32 Min
 			drawContours(Drawing, Contours, (int)i, Color, 5, cv::LINE_8, Hierarchy, 0);
 		}
 	}
+	
+	std::stringstream ss;
+	ss << "Foram encontrados " << OutCount << " Objetos";
+	cv::putText(Drawing,ss.str(),cv::Point(10,30),cv::FONT_HERSHEY_SIMPLEX, 0.5,(0,255,0),1,cv::LINE_AA);
 
 	FImage NewImage = createImageFromMat(Drawing);
 	ImagesHistory.Add(NewImage);
@@ -556,8 +560,8 @@ UTexture2D* AImageProcessingGameModeBase::AddSaltAndPepper(float NoiseProbabilit
 	int64 NoiseCount = NoiseProbability * SourceMat.cols * SourceMat.rows;
 	for (int64 i = 0; i < NoiseCount; i++)
 	{
-		int64 RandomCol = FMath::RandRange(0, SourceMat.cols);
-		int64 RandomRow = FMath::RandRange(0, SourceMat.rows);
+		int64 RandomCol = FMath::RandRange(0, SourceMat.cols - 1 );
+		int64 RandomRow = FMath::RandRange(0, SourceMat.rows - 1 );
 		uint8 NoiseValue = FMath::RandBool() ? 255 : 0;
 
 		FMemory::Memset(DestMat.ptr(RandomRow, RandomCol), NoiseValue, DestMat.channels());
