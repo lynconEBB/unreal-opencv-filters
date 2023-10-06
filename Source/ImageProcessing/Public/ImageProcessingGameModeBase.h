@@ -35,15 +35,15 @@ class IMAGEPROCESSING_API AImageProcessingGameModeBase : public AGameModeBase
 	
 public:
 	AImageProcessingGameModeBase();
-
 	virtual void BeginPlay() override;
 	
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* LoadImage(const FString& ImagePath);
+	UFUNCTION(BlueprintCallable)
 	UTexture2D* UndoAction();
 	
 	UFUNCTION(BlueprintCallable)
-	UTexture2D* ApplyThreshold(double LimitValue, ThresholdType Type);
+	UTexture2D* ApplyThreshold(double LimitValue);
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* ToGrayScale();
 	UFUNCTION(BlueprintCallable)
@@ -73,7 +73,7 @@ public:
 	cv::Mat ApplyZeroCross(const cv::Mat& SourceImage);
 
 	UFUNCTION(BlueprintCallable)
-	UTexture2D* ApplyWatershed();
+	UTexture2D* ApplyWatershed(int32 KernelSize, float ForeGroundMultiplier);
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* ObjectCount(int32 Threshold, int32 MinObjectArea, int32& OutCount);
 

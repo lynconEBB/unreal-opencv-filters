@@ -48,22 +48,26 @@ UTexture2D* AImageProcessingGameModeBase::LoadImage(const FString& ImagePath)
 
 UTexture2D* AImageProcessingGameModeBase::UndoAction()
 {
+	if ( ImagesHistory.IsEmpty())
+		return nullptr;
 	if (ImagesHistory.Num() == 1)
 	{
+		ImagesHistory.Empty();
 		return nullptr;
 	}
+	ImagesHistory.Pop();
 
-	
+	return ConvertToTexture2D(ImagesHistory.Top());	
 }
 
-UTexture2D* AImageProcessingGameModeBase::ApplyThreshold(double LimitValue, ThresholdType Type)
+UTexture2D* AImageProcessingGameModeBase::ApplyThreshold(double LimitValue)
 {
 	if (ImagesHistory.IsEmpty())
 		return nullptr;
 
 	cv::Mat SourceMat = CreateMatFromImage(ImagesHistory.Top());
 	cv::Mat DestMat;
-	cv::threshold(SourceMat, DestMat, LimitValue, 255, Type);
+	cv::threshold(SourceMat, DestMat, LimitValue, 255, cv::THRESH_BINARY);
 
 	FImage NewImage = createImageFromMat(DestMat);
 	ImagesHistory.Add(NewImage);
@@ -322,7 +326,7 @@ cv::Mat AImageProcessingGameModeBase::ApplyZeroCross(const cv::Mat& Image)
 	return DestMat;
 }
 
-UTexture2D* AImageProcessingGameModeBase::ApplyWatershed()
+UTexture2D* AImageProcessingGameModeBase::ApplyWatershed(int32 KernelSize, float ForeGroundMultiplier)
 {
 	if (ImagesHistory.IsEmpty())
 		return nullptr;
@@ -345,7 +349,7 @@ UTexture2D* AImageProcessingGameModeBase::ApplyWatershed()
 	cv::threshold(Gray, Thresholded, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
 	cv::bitwise_not(Thresholded, Thresholded);
 
-	cv::Mat kernel = cv::Mat::ones(3, 3,CV_8U);
+	cv::Mat kernel = cv::Mat::ones(KernelSize, KernelSize,CV_8U);
 	cv::Mat Opened;
 	cv::morphologyEx(Thresholded, Opened, cv::MORPH_OPEN, kernel, cv::Point(-1, -1), 3);
 
@@ -357,7 +361,7 @@ UTexture2D* AImageProcessingGameModeBase::ApplyWatershed()
 	normalize(Distance, Distance, 0, 1.0, cv::NORM_MINMAX);
 	double min, max;
 	cv::minMaxLoc(Distance, &min, &max);
-	cv::threshold(Distance, SureFG, 0.1 * max, 255, cv::THRESH_BINARY);
+	cv::threshold(Distance, SureFG, ForeGroundMultiplier * max, 255, cv::THRESH_BINARY);
 	cv::convertScaleAbs(SureFG, SureFG);
 
 	cv::Mat Unknown;
