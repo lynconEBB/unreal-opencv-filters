@@ -69,7 +69,7 @@ public:
 	UTexture2D* ApplyCanny(int32 Min, int32 Max, int32 SobelAperture);
 	
 	UFUNCTION(BlueprintCallable)
-	UTexture2D* ApplyLaplacianOfGauss(int32 KernelSize);
+	UTexture2D* ApplyLaplacianOfGauss(int32 KernelSize, bool bApplyZeroCross);
 	cv::Mat ApplyZeroCross(const cv::Mat& SourceImage);
 
 	UFUNCTION(BlueprintCallable)
@@ -78,7 +78,7 @@ public:
 	UTexture2D* ObjectCount(int32 Threshold, int32 MinObjectArea, int32& OutCount);
 
 	UFUNCTION(BlueprintCallable)
-	UTexture2D* GenerateHistogram();
+	void GenerateHistogram(TArray<int>& GrayValues, TArray<int>& BlueValues, TArray<int>& RedValues, TArray<int>& GreenValues);
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* ApplyAdaptiveHistogramEqualization();
 private:

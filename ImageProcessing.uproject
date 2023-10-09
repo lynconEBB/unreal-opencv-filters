@@ -12,6 +12,10 @@
 	],
 	"Plugins": [
 		{
+			"Name": "KantanCharts",
+			"Enabled": true
+		},
+		{
 			"Name": "ModelingToolsEditorMode",
 			"Enabled": true,
 			"TargetAllowList": [

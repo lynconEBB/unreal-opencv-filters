@@ -281,7 +281,7 @@ UTexture2D* AImageProcessingGameModeBase::ApplyCanny(int32 Min, int32 Max, int32
 	return ConvertToTexture2D(NewImage);
 }
 
-UTexture2D* AImageProcessingGameModeBase::ApplyLaplacianOfGauss(int32 KernelSize)
+UTexture2D* AImageProcessingGameModeBase::ApplyLaplacianOfGauss(int32 KernelSize, bool bApplyZeroCross)
 {
 	if (ImagesHistory.IsEmpty())
 		return nullptr;
@@ -291,7 +291,11 @@ UTexture2D* AImageProcessingGameModeBase::ApplyLaplacianOfGauss(int32 KernelSize
 	cv::GaussianBlur(SourceMat, Gaus, {KernelSize, KernelSize}, 0);
 	cv::Laplacian(Gaus, Laplacian,CV_16S, KernelSize);
 
-	cv::Mat Final = ApplyZeroCross(Laplacian);
+	cv::Mat Final;
+	if (bApplyZeroCross)
+		Final = ApplyZeroCross(Laplacian);
+	else
+		cv::convertScaleAbs(Laplacian,Final);
 
 	FImage NewImage = createImageFromMat(Final);
 	ImagesHistory.Add(NewImage);
@@ -455,21 +459,18 @@ UTexture2D* AImageProcessingGameModeBase::ObjectCount(int32 Threshold, int32 Min
 	return ConvertToTexture2D(NewImage);
 }
 
-UTexture2D* AImageProcessingGameModeBase::GenerateHistogram()
+void AImageProcessingGameModeBase::GenerateHistogram(TArray<int>& GrayValues, TArray<int>& BlueValues, TArray<int>& RedValues, TArray<int>& GreenValues)
 {
 	if (ImagesHistory.IsEmpty())
-		return nullptr;
+		return;
 
 	cv::Mat Source = CreateMatFromImage(ImagesHistory.Top());
 	if (Source.channels() == 4)
 		cv::cvtColor(Source, Source, cv::COLOR_BGRA2BGR);
 
-	int32 HistogramSize = 256;
-	int32 SliceWidth = FMath::RoundToInt32((double)1920 / HistogramSize);
+	int32 HistogramSize = 255;
 	float Range[2] = {0, 256};
 	const float* HistogramRange = Range;
-
-	cv::Mat Histogram = cv::Mat::zeros(1080, 1920, CV_8UC4);
 
 	if (Source.channels() == 3)
 	{
@@ -481,54 +482,23 @@ UTexture2D* AImageProcessingGameModeBase::GenerateHistogram()
 		cv::calcHist(&SourceChannels[1], 1, 0, cv::Mat(), GreenChannel, 1, &HistogramSize, &HistogramRange);
 		cv::calcHist(&SourceChannels[2], 1, 0, cv::Mat(), RedChannel, 1, &HistogramSize, &HistogramRange);
 
-		cv::normalize(BlueChannel, BlueChannel, 0, Histogram.rows, cv::NORM_MINMAX, -1, cv::Mat());
-		cv::normalize(GreenChannel, GreenChannel, 0, Histogram.rows, cv::NORM_MINMAX, -1, cv::Mat());
-		cv::normalize(RedChannel, RedChannel, 0, Histogram.rows, cv::NORM_MINMAX, -1, cv::Mat());
-
-		for (int i = 1; i < HistogramSize; i++)
+		for (int i = 0; i < HistogramSize; i++)
 		{
-			cv::line(
-				Histogram,
-				cv::Point(SliceWidth * (i - 1), Histogram.rows - cvRound(BlueChannel.at<float>(i - 1))),
-				cv::Point(SliceWidth * (i), Histogram.rows - cvRound(BlueChannel.at<float>(i))),
-				cv::Scalar(255, 0, 0),
-				2
-			);
-			cv::line(
-				Histogram,
-				cv::Point(SliceWidth * (i - 1), Histogram.rows - cvRound(GreenChannel.at<float>(i - 1))),
-				cv::Point(SliceWidth * (i), Histogram.rows - cvRound(GreenChannel.at<float>(i))),
-				cv::Scalar(0, 255, 0),
-				2
-			);
-			cv::line(
-				Histogram,
-				cv::Point(SliceWidth * (i - 1), Histogram.rows - cvRound(RedChannel.at<float>(i - 1))),
-				cv::Point(SliceWidth * (i), Histogram.rows - cvRound(RedChannel.at<float>(i))),
-				cv::Scalar(0, 0, 255),
-				2
-			);
+			GreenValues.Add(cvRound(GreenChannel.at<float>(i)));
+			RedValues.Add(cvRound(RedChannel.at<float>(i)));
+			BlueValues.Add(cvRound(BlueChannel.at<float>(i)));
 		}
 	}
 	else
 	{
 		cv::Mat GrayChannel;
 		cv::calcHist(&Source, 1, 0, cv::Mat(), GrayChannel, 1, &HistogramSize, &HistogramRange);
-		cv::normalize(GrayChannel, GrayChannel, 0, Histogram.rows, cv::NORM_MINMAX, -1, cv::Mat());
-		for (int i = 1; i < HistogramSize; i++)
+		
+		for (int i = 0; i < HistogramSize; i++)
 		{
-			cv::line(
-				Histogram,
-				cv::Point(SliceWidth * (i - 1), Histogram.rows - cvRound(GrayChannel.at<float>(i - 1))),
-				cv::Point(SliceWidth * (i), Histogram.rows - cvRound(GrayChannel.at<float>(i))),
-				cv::Scalar(255, 255, 255),
-				2
-			);
+			GrayValues.Add(cvRound(GrayChannel.at<float>(i)));
 		}
 	}
-
-	FImage NewImage = createImageFromMat(Histogram);
-	return ConvertToTexture2D(NewImage);
 }
 
 UTexture2D* AImageProcessingGameModeBase::ApplyAdaptiveHistogramEqualization()

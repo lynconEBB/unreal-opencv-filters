@@ -17,3 +17,5 @@ Images
 *.xcworkspace
 *.code-workspace
 .idea
+Plugins/KantanCharts/Binaries
+Plugins/KantanCharts/Intermediate
