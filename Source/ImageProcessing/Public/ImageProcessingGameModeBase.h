@@ -41,6 +41,8 @@ public:
 	UTexture2D* LoadImage(const FString& ImagePath);
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* UndoAction();
+	UFUNCTION(BlueprintCallable)
+	bool SaveImage(const FString& NewImagePath);
 	
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* ApplyThreshold(double LimitValue);

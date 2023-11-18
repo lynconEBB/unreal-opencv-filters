@@ -16,6 +16,17 @@ void UDesktopUtils::OpenFileDialog(const FString& DialogTitle, const FString& De
 	DesktopPlatform->OpenFileDialog(WindowHandle, DialogTitle, DefaultPath,TEXT(""), FileTypes, EFileDialogFlags::None, OutFileNames);
 }
 
+void UDesktopUtils::OpenSaveFileDialog(const FString& DialogTitle, const FString& DefaultPath, const FString& FileTypes, TArray<FString>& OutFileNames)
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+
+	if (DesktopPlatform == nullptr )
+		return;
+
+	const void* WindowHandle = FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr);
+	DesktopPlatform->SaveFileDialog(WindowHandle, DialogTitle, DefaultPath, TEXT(""), FileTypes,EFileDialogFlags::None, OutFileNames);
+}
+
 bool UDesktopUtils::MakeDirectory(const FString& a)
 {
 	FPaths::ProjectDir();

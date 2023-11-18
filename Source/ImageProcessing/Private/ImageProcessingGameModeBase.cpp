@@ -3,7 +3,11 @@
 
 #include "ImageUtils.h"
 
+
+
 #include "PreOpenCVHeaders.h"
+#include "gdal.h"
+#include "gdal_priv.h"
 #include "opencv2/imgproc.hpp"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/ml.hpp"
@@ -30,10 +34,36 @@ void AImageProcessingGameModeBase::BeginPlay()
 UTexture2D* AImageProcessingGameModeBase::LoadImage(const FString& ImagePath)
 {
 	FImage Image;
+	
+	FString Extension = FPaths::GetExtension(ImagePath);
+	if (Extension.Equals(TEXT("jp2")))
+	{
+		GDALDataset* loadedDataset = (GDALDataset*)GDALOpen(TCHAR_TO_ANSI(*ImagePath), GA_ReadOnly);
+		if (loadedDataset == nullptr)
+			return nullptr;
 
-	bool bLoadSuccess = FImageUtils::LoadImage(*ImagePath, Image);
-	if (!bLoadSuccess)
-		return nullptr;
+		int width = loadedDataset->GetRasterXSize();
+		int height = loadedDataset->GetRasterYSize();
+		int numBands = loadedDataset->GetRasterCount();
+		
+		uint16* data = new uint16[width * height * numBands];
+
+        loadedDataset->RasterIO(GF_Read, 0,0, width, height, data, width, height, GDT_UInt16, numBands, NULL, 0,0,0);
+		cv::Mat image(width, height, CV_16UC(numBands), data);
+        cv::normalize(image,image, 0, 255,cv::NORM_MINMAX,CV_8U);
+		cv::Ptr<cv::CLAHE> Clahe = cv::createCLAHE();
+
+		Clahe->apply(image, image);
+		Clahe.release();
+
+		Image = createImageFromMat(image);
+	} else
+	{
+		bool bLoadSuccess = FImageUtils::LoadImage(*ImagePath, Image);
+		if (!bLoadSuccess)
+			return nullptr;
+	}
+
 
 	UTexture2D* Texture = ConvertToTexture2D(Image);
 	if (!IsValid(Texture))
@@ -58,6 +88,15 @@ UTexture2D* AImageProcessingGameModeBase::UndoAction()
 	ImagesHistory.Pop();
 
 	return ConvertToTexture2D(ImagesHistory.Top());	
+}
+
+bool AImageProcessingGameModeBase::SaveImage(const FString& NewImagePath)
+{
+	
+	if ( ImagesHistory.IsEmpty())
+		return nullptr;
+	
+	return FImageUtils::SaveImageAutoFormat(*NewImagePath, ImagesHistory.Pop());
 }
 
 UTexture2D* AImageProcessingGameModeBase::ApplyThreshold(double LimitValue)

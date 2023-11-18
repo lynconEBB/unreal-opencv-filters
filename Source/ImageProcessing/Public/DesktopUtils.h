@@ -14,5 +14,8 @@ public:
 	static void OpenFileDialog(const FString& DialogTitle, const FString& DefaultPath, const FString& FileTypes, TArray<FString>& OutFileNames);
 
 	UFUNCTION(BlueprintCallable)
+	static void OpenSaveFileDialog(const FString& DialogTitle, const FString& DefaultPath, const FString& FileTypes, TArray<FString>& OutFileNames);
+	
+	UFUNCTION(BlueprintCallable)
 	static bool MakeDirectory(const FString& a);
 };

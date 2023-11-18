@@ -8,7 +8,7 @@ public class ImageProcessing : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" ,"ImageCore", "DesktopPlatform" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" ,"ImageCore", "DesktopPlatform", "GDAL", "UnrealGDAL" });
 		PrivateDependencyModuleNames.AddRange(new string[] { "OpenCV", "OpenCVHelper", "Slate", "SlateCore" });
 	}
 }

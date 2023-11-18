@@ -25,6 +25,10 @@
 		{
 			"Name": "OpenCV",
 			"Enabled": true
+		},
+		{
+			"Name": "UnrealGDAL",
+			"Enabled": true
 		}
 	]
 }
