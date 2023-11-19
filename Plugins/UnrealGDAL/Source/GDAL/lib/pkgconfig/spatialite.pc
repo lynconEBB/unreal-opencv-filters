@@ -1,0 +1,15 @@
+prefix=${pcfiledir}/../..
+# Package Information for pkg-config
+
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: spatialite
+Description: Spatial SQL database engine based on SQLite
+Version: 5.1.0
+Requires.private: geos libxml-2.0 proj sqlite3 zlib freexl
+Libs.private: -liconv -lcharset
+Libs: "-L${libdir}" -lspatialite
+Cflags: "-I${includedir}"
+

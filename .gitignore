@@ -21,3 +21,4 @@ Plugins/KantanCharts/Binaries
 Plugins/KantanCharts/Intermediate
 Plugins/UnrealGDAL/Binaries
 Plugins/UnrealGDAL/Intermediate
+*.pdb

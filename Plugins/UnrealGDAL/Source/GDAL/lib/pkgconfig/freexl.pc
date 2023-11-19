@@ -1,0 +1,15 @@
+prefix=${pcfiledir}/../..
+# Package Information for pkg-config
+
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: freexl
+Description: a simple library extracting data from .xls (Excel BIFF) files
+Version: 2.0.0
+Libs: "-L${libdir}" -lfreexl -liconv -lcharset
+Cflags: "-I${includedir}" 
+Libs.private: -liconv 
+Requires.private: expat minizip
+
