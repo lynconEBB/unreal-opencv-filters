@@ -80,6 +80,9 @@ public:
 	UTexture2D* ObjectCount(int32 Threshold, int32 MinObjectArea, int32& OutCount);
 
 	UFUNCTION(BlueprintCallable)
+	UTexture2D* NormalizedDifferenceFromImage(const FString& ImagePath);
+
+	UFUNCTION(BlueprintCallable)
 	void GenerateHistogram(TArray<int>& GrayValues, TArray<int>& BlueValues, TArray<int>& RedValues, TArray<int>& GreenValues);
 	UFUNCTION(BlueprintCallable)
 	UTexture2D* ApplyAdaptiveHistogramEqualization();

@@ -491,11 +491,30 @@ UTexture2D* AImageProcessingGameModeBase::ObjectCount(int32 Threshold, int32 Min
 	
 	std::stringstream ss;
 	ss << "Foram encontrados " << OutCount << " Objetos";
-	cv::putText(Drawing,ss.str(),cv::Point(10,30),cv::FONT_HERSHEY_SIMPLEX, 0.5,(0,255,0),1,cv::LINE_AA);
+	cv::putText(Drawing,ss.str(),cv::Point(10,30),cv::FONT_HERSHEY_SIMPLEX, 0.5,{0,255,0},1,cv::LINE_AA);
 
 	FImage NewImage = createImageFromMat(Drawing);
 	ImagesHistory.Add(NewImage);
 	return ConvertToTexture2D(NewImage);
+}
+
+UTexture2D* AImageProcessingGameModeBase::NormalizedDifferenceFromImage(const FString& ImagePath)
+{
+	if (ImagesHistory.IsEmpty())
+		return nullptr;
+	
+	UTexture2D* BImage = LoadImage(ImagePath);
+	if (BImage == nullptr)
+		return nullptr;
+
+	cv::Mat ImageB = CreateMatFromImage(ImagesHistory.Pop());
+	cv::Mat ImageA = CreateMatFromImage(ImagesHistory.Top());
+	
+	cv::Mat DestMat = ImageA - ImageB / (ImageA + ImageB);
+	
+	FImage Image = createImageFromMat(DestMat);
+	ImagesHistory.Add(Image);
+	return ConvertToTexture2D(Image);
 }
 
 void AImageProcessingGameModeBase::GenerateHistogram(TArray<int>& GrayValues, TArray<int>& BlueValues, TArray<int>& RedValues, TArray<int>& GreenValues)

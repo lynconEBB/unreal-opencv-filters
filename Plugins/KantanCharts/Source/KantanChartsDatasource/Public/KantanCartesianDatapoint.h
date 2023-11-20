@@ -14,6 +14,8 @@ struct FKantanCartesianDatapoint
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
 	FVector2D Coords;
+
+	FKantanCartesianDatapoint(): Coords(FVector2D::ZeroVector) {}
 };
 
 
