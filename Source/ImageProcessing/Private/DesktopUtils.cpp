@@ -13,7 +13,7 @@ void UDesktopUtils::OpenFileDialog(const FString& DialogTitle, const FString& De
 		return;
 	
 	const void* WindowHandle = FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr);
-	DesktopPlatform->OpenFileDialog(WindowHandle, DialogTitle, DefaultPath,TEXT(""), FileTypes, EFileDialogFlags::None, OutFileNames);
+	DesktopPlatform->OpenFileDialog(WindowHandle, DialogTitle, DefaultPath,TEXT(""), FileTypes, EFileDialogFlags::Multiple, OutFileNames);
 }
 
 void UDesktopUtils::OpenSaveFileDialog(const FString& DialogTitle, const FString& DefaultPath, const FString& FileTypes, TArray<FString>& OutFileNames)

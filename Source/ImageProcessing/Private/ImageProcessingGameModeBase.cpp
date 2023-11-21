@@ -2,7 +2,7 @@
 
 
 #include "ImageUtils.h"
-
+#include <vector>
 
 
 #include "PreOpenCVHeaders.h"
@@ -498,21 +498,106 @@ UTexture2D* AImageProcessingGameModeBase::ObjectCount(int32 Threshold, int32 Min
 	return ConvertToTexture2D(NewImage);
 }
 
-UTexture2D* AImageProcessingGameModeBase::NormalizedDifferenceFromImage(const FString& ImagePath)
+cv::Mat loadJP2(const FString& ImagePath)
 {
-	if (ImagesHistory.IsEmpty())
-		return nullptr;
+	GDALDataset* loadedDataset = (GDALDataset*)GDALOpen(TCHAR_TO_ANSI(*ImagePath), GA_ReadOnly);
+	if (loadedDataset == nullptr)
+		return cv::Mat();
+
+	int width = loadedDataset->GetRasterXSize();
+	int height = loadedDataset->GetRasterYSize();
+	int numBands = loadedDataset->GetRasterCount();
 	
-	UTexture2D* BImage = LoadImage(ImagePath);
-	if (BImage == nullptr)
+	float* data = new float[width * height * numBands];
+
+	loadedDataset->RasterIO(GF_Read, 0,0, width, height, data, width, height, GDT_Float32, numBands, NULL, 0,0,0);
+	return cv::Mat(width, height, CV_32FC(numBands), data);
+}
+
+cv::Scalar interpolateColors(float value, const std::pair<float, cv::Scalar>& colorPoint1, const std::pair<float, cv::Scalar>& colorPoint2) {
+    float factor = (value - colorPoint1.first) / (colorPoint2.first - colorPoint1.first);
+    cv::Scalar interpolatedColor = colorPoint1.second + (colorPoint2.second - colorPoint1.second) * factor;
+    return interpolatedColor;
+}
+
+cv::Mat colorizeImage(const cv::Mat& grayImage, const std::vector<std::pair<float, cv::Scalar>>& colorMap) {
+    cv::Mat colorizedImage(grayImage.size(), CV_8UC4); // Output colorized image
+
+    for (int y = 0; y < grayImage.rows; ++y) {
+        for (int x = 0; x < grayImage.cols; ++x) {
+            float pixelValue = grayImage.at<float>(y, x);
+
+            // Find the two closest color points in the range
+            std::pair<float, cv::Scalar> colorPoint1, colorPoint2;
+            for (size_t i = 0; i < colorMap.size() - 1; ++i) {
+                if (pixelValue >= colorMap[i].first && pixelValue <= colorMap[i + 1].first) {
+                    colorPoint1 = colorMap[i];
+                    colorPoint2 = colorMap[i + 1];
+                    break;
+                }
+            }
+
+            // Interpolate the color based on the pixel value
+            cv::Scalar interpolatedColor = interpolateColors(pixelValue, colorPoint1, colorPoint2);
+
+            // Assign the interpolated color to the pixel in the colorized image
+            colorizedImage.at<cv::Vec4b>(y, x) = cv::Vec4b(interpolatedColor[0], interpolatedColor[1], interpolatedColor[2], 255);
+        }
+    }
+
+    return colorizedImage;
+}
+cv::Mat createMask(cv::Mat input)
+{
+    cv::Mat mask(input.size(), CV_8UC1); // Output colorized image
+
+    for (int y = 0; y < input.rows; ++y) {
+        for (int x = 0; x < input.cols; ++x) {
+            float pixelValue = input.at<float>(y, x);
+
+			if (pixelValue > 0.2)
+			{
+				mask.at<uint8>(y, x) = 255;
+			} else
+			{
+				mask.at<uint8>(y, x) = 0;
+			}
+        }
+    }
+
+    return mask;
+}
+
+UTexture2D* AImageProcessingGameModeBase::NormalizedDifferenceFromImage(const FString& ImagePathA, const FString& ImagePathB, float& WaterPercentage)
+{
+	cv::Mat ImageB;
+	cv::Mat ImageA;
+	
+	ImageA = loadJP2(ImagePathA);
+	ImageB = loadJP2(ImagePathB);
+	
+	if (ImageB.empty() || ImageA.empty())
 		return nullptr;
 
-	cv::Mat ImageB = CreateMatFromImage(ImagesHistory.Pop());
-	cv::Mat ImageA = CreateMatFromImage(ImagesHistory.Top());
+	cv::Mat DestMat = (ImageA - ImageB) / (ImageA + ImageB);
+
+	double min,max;
+	cv::minMaxLoc(DestMat, &min, &max);
+	cv::Mat normalized = (DestMat - min) * (( 0.8 - (-0.8)) / (max - min)) + (-0.8);
 	
-	cv::Mat DestMat = ImageA - ImageB / (ImageA + ImageB);
+	std::vector<std::pair<float, cv::Scalar>> colorRange = {
+		{-0.8f, cv::Scalar(0, 128, 0)},    
+		{0.0f, cv::Scalar(255, 255, 255)},
+		{0.8f, cv::Scalar(204, 0,0)}     
+	};
+	cv::Mat colorizedImage = colorizeImage(normalized, colorRange);
+	cv::Mat mask = createMask(normalized);
+	int waterPixels = cv::countNonZero(mask);
+	WaterPercentage = (waterPixels / (float)(mask.cols * mask.rows)) * 100;
 	
-	FImage Image = createImageFromMat(DestMat);
+	FImage MaskImage = createImageFromMat(mask);	
+	FImage Image = createImageFromMat(colorizedImage);
+	ImagesHistory.Add(MaskImage);
 	ImagesHistory.Add(Image);
 	return ConvertToTexture2D(Image);
 }
